@@ -8,6 +8,7 @@
 		"tdd": "jest --watchAll",
 		"test": "jest"
 	},
+	"private": false,
 	"keywords": [
 		"posthtml",
 		"posthtml-plugin",
