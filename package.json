@@ -1,25 +1,31 @@
 {
-	"name": "@westtrade/custom-posthtml",
+	"name": "@westtrade/posthtml-custom-elements",
 	"version": "0.0.1",
-	"description": "",
+	"description": "PostHTML plugin for HTML5 custom elements support",
 	"main": "src/plugins/custom-html.js",
 	"scripts": {
 		"develop": "nodemon --watch src ./src/playground/index.js",
 		"tdd": "jest --watchAll",
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"test": "jest"
 	},
-	"keywords": [],
-	"author": "",
-	"license": "ISC",
-	"devDependencies": {},
+	"keywords": [
+		"posthtml",
+		"posthtml-plugin",
+		"custom-elements",
+		"parcel",
+		"parcel-bundler"
+	],
+	"author": "Popov Gennadiy <gennadiy.popov.87@yandex.ru>",
+	"license": "MIT",
+	"devDependencies": {
+		"jest": "^24.7.1"
+	},
 	"dependencies": {
 		"glob": "^7.1.3",
-		"jest": "^24.7.1",
 		"lodash": "^4.17.11",
 		"parcel": "^1.12.2",
 		"parcel-bundler": "^1.12.2",
 		"posthtml": "^0.11.3",
-		"posthtml-custom-elements": "^1.1.2",
 		"posthtml-parser": "^0.4.1"
 	}
 }
