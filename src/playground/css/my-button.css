@@ -1,0 +1,11 @@
+.my-button {
+    border: 1px solid #000;
+    cursor: pointer;
+    
+}
+
+.my-button-black {
+    background-color: #000;
+    color: #fff;
+    font-weight: bold;
+}
