@@ -84,16 +84,41 @@ const resolveAssetPath = (node, componentRootPath, options = {}) => {
 	return node
 }
 
-const getRootPath = () => {
-	const executedFilename = require.main.filename
+// const getRootPath = () => {
 
-	const nodeModulesIdx = executedFilename.indexOf('/node_modules')
-	if (nodeModulesIdx >= 0) {
-		const rootPath = executedFilename.substring(0, nodeModulesIdx)
-		return rootPath
-	} else {
-		return path.dirname(executedFilename)
-	}
+// }
+
+/**
+ * Detect root path for build process
+ * @returns {String}
+ */
+const getRootPath = () => {
+	const entryFilePath = process.argv[process.argv.length - 1]
+	const parsedPath = path.parse(entryFilePath)
+
+	return path.resolve(process.cwd(), parsedPath.dir)
+
+	// const parcelPathIdx = process.argv.indexOf(require.main.filename)
+	// const isParcel = parcelPathIdx >= 0
+	// console.log(isParcel, process.argv, require.main.filename)
+
+	// if (isParcel) {
+	// 	const entryFilePath = process.argv[process.argv.length - 1]
+	// 	const parsedPath = path.parse(entryFilePath)
+
+	// 	console.log(process.resolve(process.cwd(), parsedPath.dir))
+
+	// 	return process.resolve(process.cwd(), parsedPath.dir)
+	// }
+
+	// const executedFilename = require.main.filename
+	// const nodeModulesIdx = executedFilename.indexOf('/node_modules')
+	// if (nodeModulesIdx >= 0) {
+	// 	const rootPath = executedFilename.substring(0, nodeModulesIdx)
+	// 	return rootPath
+	// } else {
+	// 	return path.dirname(executedFilename)
+	// }
 }
 
 const getComponentDefinition = (options = {}, componentPath) => {
@@ -151,20 +176,42 @@ const resolveVariable = (inputString, locals = {}) => {
 	})
 }
 
-const applyDefinition = (nestNode, componentDefinition, tabulation = '') => {
+const applyComponents = (rootNodes, componentsDefinitions, tabulation = '') => {
+	if (Array.isArray(rootNodes)) {
+		return rootNodes.map(rootNode =>
+			applyComponents(rootNode, componentsDefinitions, tabulation),
+		)
+	}
+
+	const isComponent =
+		typeof rootNodes === 'object' && rootNodes.tag in componentsDefinitions
+
+	if (isComponent) {
+		return applyDefinition(rootNodes, componentsDefinitions, tabulation)
+	}
+
+	return [rootNodes]
+}
+
+const applyDefinition = (nestNode, componentsDefinitions, tabulation = '') => {
+	const componentDefinition = componentsDefinitions[nestNode.tag]
+
 	let resultComponent = cloneDeep(componentDefinition)
 	let childrenComponent = cloneDeep(nestNode.content)
 
 	resultComponent = walk(resultComponent, node => {
 		if (node.content) {
-			node.content = node.content.reduce((result, node, idx, content) => {
+			node.content = node.content.reduce((result, childNode, idx, content) => {
 				// let prevNode = content[idx - 1]
+				if (typeof childNode === 'string') {
+					childNode = `${childNode}${tabulation}`
+					childNode = resolveVariable(childNode, nestNode.attrs)
 
-				if (typeof node === 'string') {
-					node = `${node}${tabulation}`
-					node = resolveVariable(node, nestNode.attrs)
-				} else if (node.attrs) {
-					node.attrs = Object.entries(node.attrs).reduce(
+					return [...result, childNode]
+				}
+
+				if (childNode.attrs) {
+					childNode.attrs = Object.entries(childNode.attrs).reduce(
 						(result, [key, value]) => {
 							if (typeof value === 'string') {
 								value = resolveVariable(value, nestNode.attrs)
@@ -176,7 +223,17 @@ const applyDefinition = (nestNode, componentDefinition, tabulation = '') => {
 					)
 				}
 
-				return [...result, node]
+				const isComponent =
+					typeof childNode === 'object' &&
+					childNode.tag in componentsDefinitions
+
+				if (isComponent) {
+					const childNodes = applyDefinition(childNode, components, tabulation)
+
+					return [...result, ...childNodes]
+				}
+
+				return [...result, childNode]
 			}, [])
 		}
 
@@ -191,7 +248,13 @@ const applyDefinition = (nestNode, componentDefinition, tabulation = '') => {
 		}
 
 		if (node.tag === 'slot' && node.attrs.name === 'children') {
-			return childrenComponent
+			const resultChildrenComponents = applyComponents(
+				childrenComponent || node.content,
+				componentsDefinitions,
+				tabulation,
+			)
+
+			return resultChildrenComponents
 		}
 
 		return node

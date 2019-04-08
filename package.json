@@ -2,7 +2,7 @@
 	"name": "@westtrade/posthtml-custom-elements",
 	"version": "0.0.1",
 	"description": "PostHTML plugin for HTML5 custom elements support",
-	"main": "src/plugins/custom-html.js",
+	"main": "./src/plugins/custom-elements.js",
 	"scripts": {
 		"develop": "nodemon --watch src ./src/playground/index.js",
 		"tdd": "jest --watchAll",

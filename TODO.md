@@ -1,6 +1,0 @@
-- [] Prevent recursion in children elements (when define {children} interpolation in nested)
-- [] Detect correct path in module variant
-- [] Parcel can watch nested files
-- [] Link rel=include can include whole folder
-- [] Prevent infinitee recursion in nested elements
-- [] Check element name by pattern test-custom

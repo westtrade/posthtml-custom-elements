@@ -17,8 +17,6 @@ module.exports = (options = {}) => {
 		...options,
 	}
 
-	options.rootPath = options.rootPath || './'
-
 	const components = {}
 	return tree => {
 		tree.walk(node => {
@@ -63,7 +61,7 @@ module.exports = (options = {}) => {
 
 							const childNodes = applyDefinition(
 								childNode,
-								components[childNode.tag],
+								components,
 								tabulation,
 							)
 
