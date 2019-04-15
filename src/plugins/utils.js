@@ -4,6 +4,7 @@ const parser = require('posthtml-parser')
 const cloneDeep = require('lodash/cloneDeep')
 const glob = require('glob')
 const isURL = require('parcel-bundler/src/utils/is-url')
+const assert = require('assert')
 
 /**
  * @typedef {Object} ComponentDefinition
@@ -15,7 +16,7 @@ const isURL = require('parcel-bundler/src/utils/is-url')
 
 /**
  * @typedef {Object} PluginOptions
- * @param {String} rootPath - Root path of project
+ * @param {string} rootPath - Root path of project
  */
 
 const resolvePath = (options = {}, currentPath = '.') => {
@@ -38,6 +39,13 @@ const walk = (node, callback, idx) => {
 	node.content = content
 	return node
 }
+
+/**
+ * Convert hyphens in string to camelCase
+ * @param {string} inputString
+ */
+const hyphensToCamelCase = inputString =>
+	inputString.replace(/-([a-z])/g, g => g[1].toUpperCase())
 
 const ATTRS = {
 	script: ['src'],
@@ -69,6 +77,7 @@ const resolveAssetPath = (node, componentRootPath, options = {}) => {
 			(resultAttrs, [currentAttr, value]) => {
 				if (pathAttrs.includes(currentAttr) && !isURL(value)) {
 					const absolutePath = path.resolve(componentRootPath, value)
+					// value = absolutePath
 					value = path.relative(rootPath, absolutePath)
 				}
 
@@ -90,7 +99,7 @@ const resolveAssetPath = (node, componentRootPath, options = {}) => {
 
 /**
  * Detect root path for build process
- * @returns {String}
+ * @returns {string}
  */
 const getRootPath = () => {
 	const entryFilePath = process.argv[process.argv.length - 1]
@@ -121,7 +130,7 @@ const getRootPath = () => {
 	// }
 }
 
-const getComponentDefinition = (options = {}, componentPath) => {
+const getComponentDefinition = (options = {}, componentPath = '') => {
 	const normalPath = resolvePath(options, componentPath)
 
 	let html = ''
@@ -147,7 +156,7 @@ const getComponentDefinition = (options = {}, componentPath) => {
 /**
  * Collect components definitions
  * @param {PluginOptions} options
- * @param {String} componentGlobPath
+ * @param {string} componentGlobPath
  * @returns {FullComponentDefinition[]}
  */
 const getComponentsDefinitions = (options = {}, componentGlobPath) => {
@@ -170,42 +179,97 @@ const getComponentsDefinitions = (options = {}, componentGlobPath) => {
 }
 
 const interpolationRegex = /(?:(?<![\\])[{])((?:[\\][}]|[^}])*?)(?:[}])/gim
-const resolveVariable = (inputString, locals = {}) => {
+
+/**
+ * Evaluate interpolation placeholders for input string
+ * @param {string} inputString Input string
+ * @param {Object} locals Local varables
+ * @param {*} emptyValue Local varables
+ */
+const resolveVariable = (inputString, locals = {}, emptyValue = undefined) => {
+	if (!inputString) {
+		return ''
+	}
+
+	assert(typeof inputString === 'string', 'inputString must be a String type')
 	return inputString.replace(interpolationRegex, (_, attributeName) => {
-		return (locals[attributeName.trim()] || '') + ''
+		const safeAttributeName = attributeName.trim()
+		const variableExists = safeAttributeName in locals
+
+		return (variableExists ? locals[safeAttributeName] : emptyValue) + ''
 	})
 }
 
-const applyComponents = (rootNodes, componentsDefinitions, tabulation = '') => {
+const applyComponents = (rootNodes, componentsDefinitions, options = {}) => {
 	if (Array.isArray(rootNodes)) {
-		return rootNodes.map(rootNode =>
-			applyComponents(rootNode, componentsDefinitions, tabulation),
-		)
+		return rootNodes.reduce((result, rootNode) => {
+			const newNode = applyComponents(rootNode, componentsDefinitions, options)
+
+			if (Array.isArray(newNode)) {
+				return [...result, ...newNode]
+			}
+			return [...result, newNode]
+		}, [])
 	}
 
 	const isComponent =
 		typeof rootNodes === 'object' && rootNodes.tag in componentsDefinitions
 
 	if (isComponent) {
-		return applyDefinition(rootNodes, componentsDefinitions, tabulation)
+		return applyDefinition(rootNodes, componentsDefinitions, options)
 	}
 
-	return [rootNodes]
+	return rootNodes
 }
 
-const applyDefinition = (nestNode, componentsDefinitions, tabulation = '') => {
+const applyDefinition = (nestNode, componentsDefinitions, options = {}) => {
 	const componentDefinition = componentsDefinitions[nestNode.tag]
+
+	const { tabulation, onAsset = () => {} } = options
 
 	let resultComponent = cloneDeep(componentDefinition)
 	let childrenComponent = cloneDeep(nestNode.content)
 
 	resultComponent = walk(resultComponent, node => {
+		if (!node) {
+			return node
+		}
+
+		const nodeIsComponent =
+			typeof node === 'object' && node.tag in componentsDefinitions
+
+		if (nodeIsComponent) {
+			node = applyDefinition(node, componentsDefinitions, options)
+		}
+
+		// const isAssetNode =
+		// 	['link'].indexOf(node.tag) >= 0 &&
+		// 	(!node.content || !node.content.length) &&
+		// 	node.attrs &&
+		// 	typeof node.attrs === 'object'
+
+		// if (isAssetNode) {
+		// 	if (node.tag === 'link' && node.attrs.href && !isURL(node.attrs.href)) {
+		// 		onAsset(node.attrs.href)
+
+		// 		const fileContent = fs.readFileSync(node.attrs.href, 'UTF-8')
+
+		// 		return {
+		// 			tag: 'style',
+		// 			attrs: {
+		// 				type: 'css',
+		// 			},
+		// 			content: [fileContent],
+		// 		}
+		// 	}
+		// }
+
 		if (node.content) {
 			node.content = node.content.reduce((result, childNode, idx, content) => {
 				// let prevNode = content[idx - 1]
 				if (typeof childNode === 'string') {
-					childNode = `${childNode}${tabulation}`
-					childNode = resolveVariable(childNode, nestNode.attrs)
+					// childNode = `${childNode}${tabulation}`
+					childNode = resolveVariable(childNode, nestNode.attrs, '')
 
 					return [...result, childNode]
 				}
@@ -214,7 +278,7 @@ const applyDefinition = (nestNode, componentsDefinitions, tabulation = '') => {
 					childNode.attrs = Object.entries(childNode.attrs).reduce(
 						(result, [key, value]) => {
 							if (typeof value === 'string') {
-								value = resolveVariable(value, nestNode.attrs)
+								value = resolveVariable(value, nestNode.attrs, '')
 							}
 
 							return { ...result, [key]: value }
@@ -228,7 +292,11 @@ const applyDefinition = (nestNode, componentsDefinitions, tabulation = '') => {
 					childNode.tag in componentsDefinitions
 
 				if (isComponent) {
-					const childNodes = applyDefinition(childNode, components, tabulation)
+					const childNodes = applyDefinition(
+						childNode,
+						componentsDefinitions,
+						options,
+					)
 
 					return [...result, ...childNodes]
 				}
@@ -240,7 +308,7 @@ const applyDefinition = (nestNode, componentsDefinitions, tabulation = '') => {
 		if (node.attrs) {
 			node.attrs = Object.entries(node.attrs).reduce((result, [key, value]) => {
 				if (typeof value === 'string') {
-					value = resolveVariable(value, nestNode.attrs)
+					value = resolveVariable(value, nestNode.attrs, '')
 				}
 
 				return { ...result, [key]: value }
@@ -251,7 +319,7 @@ const applyDefinition = (nestNode, componentsDefinitions, tabulation = '') => {
 			const resultChildrenComponents = applyComponents(
 				childrenComponent || node.content,
 				componentsDefinitions,
-				tabulation,
+				options,
 			)
 
 			return resultChildrenComponents
@@ -275,4 +343,6 @@ module.exports = {
 	applyDefinition,
 	endlineRegex,
 	getRootPath,
+	hyphensToCamelCase,
+	applyComponents,
 }

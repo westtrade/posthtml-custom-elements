@@ -10,7 +10,5 @@ describe('Collect definitions', () => {
 			'src/components',
 			// 'src/components/**/**.html',
 		)
-
-		console.log(definitions)
 	})
 })

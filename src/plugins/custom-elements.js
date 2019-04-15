@@ -19,6 +19,15 @@ module.exports = (options = {}) => {
 
 	const components = {}
 	return tree => {
+		const addAsset = assetSrc => {
+			if (tree.messages) {
+				tree.messages.push({
+					type: 'dependency',
+					file: assetSrc,
+				})
+			}
+		}
+
 		tree.walk(node => {
 			if (node.content) {
 				node.content = node.content.reduce(
@@ -36,13 +45,7 @@ module.exports = (options = {}) => {
 
 							definitions.forEach(([componentName, definition, src]) => {
 								components[componentName] = definition
-
-								if (tree.messages) {
-									tree.messages.push({
-										type: 'dependency',
-										file: src,
-									})
-								}
+								addAsset(src)
 							})
 
 							return result
@@ -59,11 +62,10 @@ module.exports = (options = {}) => {
 								tabulation = prevNode.replace(endlineRegex, '')
 							}
 
-							const childNodes = applyDefinition(
-								childNode,
-								components,
+							const childNodes = applyDefinition(childNode, components, {
 								tabulation,
-							)
+								onAsset: addAsset,
+							})
 
 							return [...result, ...childNodes]
 						}
