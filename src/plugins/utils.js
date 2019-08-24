@@ -60,7 +60,7 @@ const ATTRS = {
 	a: ['href'],
 	use: ['href', 'xlink:href'],
 	image: ['xlink:href'],
-	meta: ['content'],
+	// meta: ['content'],
 	object: ['data'],
 }
 

@@ -1,6 +1,6 @@
 {
 	"name": "@westtrade/posthtml-custom-elements",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"description": "PostHTML plugin for HTML5 custom elements support",
 	"main": "./src/plugins/custom-elements.js",
 	"scripts": {
