@@ -6,6 +6,9 @@ const glob = require('glob')
 const isURL = require('parcel-bundler/src/utils/is-url')
 const assert = require('assert')
 
+const util = require('util')
+require('console-group').install()
+
 /**
  * @typedef {Object} ComponentDefinition
  */
@@ -222,6 +225,34 @@ const applyComponents = (rootNodes, componentsDefinitions, options = {}) => {
 	return rootNodes
 }
 
+const nodeIsComponent = (node, componentsDefinitions) =>
+	typeof node === 'object' && node.tag in componentsDefinitions
+
+const resolveNodeVariables = (node, variables = {}, options = {}) => {
+	if (typeof node === 'string') {
+		// childNode = `${childNode}${tabulation}`
+		return resolveVariable(node, variables, '')
+	}
+
+	if (node.attrs) {
+		node.attrs = Object.entries(node.attrs).reduce((result, [key, value]) => {
+			if (typeof value === 'string') {
+				value = resolveVariable(value, variables, '')
+			}
+
+			return { ...result, [key]: value }
+		}, {})
+	}
+
+	if (node.content) {
+		node.content = node.content.map(node =>
+			resolveNodeVariables(node, variables, options),
+		)
+	}
+
+	return node
+}
+
 const applyDefinition = (nestNode, componentsDefinitions, options = {}) => {
 	const componentDefinition = componentsDefinitions[nestNode.tag]
 
@@ -233,13 +264,6 @@ const applyDefinition = (nestNode, componentsDefinitions, options = {}) => {
 	resultComponent = walk(resultComponent, node => {
 		if (!node) {
 			return node
-		}
-
-		const nodeIsComponent =
-			typeof node === 'object' && node.tag in componentsDefinitions
-
-		if (nodeIsComponent) {
-			node = applyDefinition(node, componentsDefinitions, options)
 		}
 
 		// const isAssetNode =
@@ -264,34 +288,13 @@ const applyDefinition = (nestNode, componentsDefinitions, options = {}) => {
 		// 	}
 		// }
 
+		// node = applyDefinitionToContent(node, componentsDefinitions, options)
+
 		if (node.content) {
 			node.content = node.content.reduce((result, childNode, idx, content) => {
-				// let prevNode = content[idx - 1]
-				if (typeof childNode === 'string') {
-					// childNode = `${childNode}${tabulation}`
-					childNode = resolveVariable(childNode, nestNode.attrs, '')
+				childNode = resolveNodeVariables(childNode, nestNode.attrs)
 
-					return [...result, childNode]
-				}
-
-				if (childNode.attrs) {
-					childNode.attrs = Object.entries(childNode.attrs).reduce(
-						(result, [key, value]) => {
-							if (typeof value === 'string') {
-								value = resolveVariable(value, nestNode.attrs, '')
-							}
-
-							return { ...result, [key]: value }
-						},
-						{},
-					)
-				}
-
-				const isComponent =
-					typeof childNode === 'object' &&
-					childNode.tag in componentsDefinitions
-
-				if (isComponent) {
+				if (nodeIsComponent(childNode, componentsDefinitions)) {
 					const childNodes = applyDefinition(
 						childNode,
 						componentsDefinitions,
@@ -303,6 +306,10 @@ const applyDefinition = (nestNode, componentsDefinitions, options = {}) => {
 
 				return [...result, childNode]
 			}, [])
+		}
+
+		if (nodeIsComponent(node, componentsDefinitions)) {
+			node = applyDefinition(node, componentsDefinitions, options)
 		}
 
 		if (node.attrs) {

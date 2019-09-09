@@ -65,6 +65,7 @@ module.exports = (options = {}) => {
 							const childNodes = applyDefinition(childNode, components, {
 								tabulation,
 								onAsset: addAsset,
+								// parentNode: node,
 							})
 
 							return [...result, ...childNodes]
