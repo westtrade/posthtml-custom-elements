@@ -7,7 +7,7 @@ const isURL = require('parcel-bundler/src/utils/is-url')
 const assert = require('assert')
 
 const util = require('util')
-require('console-group').install()
+// require('console-group').install()
 
 /**
  * @typedef {Object} ComponentDefinition
